@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Linux File System Hierarchy — Revision Notes</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;0,900;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+  :root {
+    --bg: #0e1117;
+    --fg: #e6edf3;
+    --muted: #8b949e;
+    --accent: #f0883e;
+    --accent2: #3fb950;
+    --card: #161b22;
+    --border: #30363d;
+    --code-bg: #1c2129;
+    --heading: #ffa657;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Source Serif 4', Georgia, serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.75;
+    min-height: 100vh;
+  }
+
+  /* Floating download bar */
+  .download-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 14px 24px;
+    background: rgba(14, 17, 23, 0.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .download-bar span {
+    color: var(--muted);
+    font-size: 14px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .btn-pdf {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 24px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
+  }
+  .btn-pdf:hover {
+    background: var(--heading);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(240,136,62,0.35);
+  }
+  .btn-pdf:active { transform: scale(0.97); }
+  .btn-pdf.loading { pointer-events: none; opacity: 0.7; }
+
+  /* Progress overlay */
+  .progress-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(6px);
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .progress-overlay.active { display: flex; }
+  .spinner {
+    width: 48px; height: 48px;
+    border: 4px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .progress-overlay p {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--fg);
+    font-size: 14px;
+  }
+
+  /* Main document container */
+  #document {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 80px 32px 60px;
+  }
+
+  /* PDF-friendly print styles injected via class */
+  .pdf-render {
+    background: #ffffff !important;
+    color: #1a1a2e !important;
+    padding: 40px 48px !important;
+    max-width: 100% !important;
+    font-size: 11pt !important;
+    line-height: 1.65 !important;
+  }
+
+  /* ---------- Document Typography ---------- */
+  .doc-header {
+    text-align: center;
+    margin-bottom: 48px;
+    padding-bottom: 36px;
+    border-bottom: 2px solid var(--border);
+  }
+  .doc-header .label {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .doc-header h1 {
+    font-size: clamp(28px, 5vw, 42px);
+    font-weight: 900;
+    color: var(--fg);
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .doc-header .subtitle {
+    color: var(--muted);
+    font-size: 16px;
+    font-style: italic;
+  }
+
+  h2 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--heading);
+    margin: 48px 0 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.5px;
+  }
+
+  h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 32px 0 14px;
+  }
+
+  p, li {
+    font-size: 15px;
+    color: var(--fg);
+  }
+
+  ul {
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: 18px;
+  }
+  ul li {
+    position: relative;
+    padding-left: 22px;
+    margin-bottom: 8px;
+  }
+  ul li::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 11px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  ul ul li::before {
+    background: var(--border);
+    width: 5px;
+    height: 5px;
+    top: 12px;
+    left: 6px;
+  }
+
+  strong {
+    color: var(--fg);
+    font-weight: 700;
+  }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--code-bg);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--accent2);
+    border: 1px solid var(--border);
+  }
+
+  /* Caution boxes */
+  .caution {
+    background: rgba(240, 136, 62, 0.08);
+    border-left: 3px solid var(--accent);
+    padding: 12px 16px;
+    border-radius: 0 6px 6px 0;
+    margin: 10px 0;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .caution strong { color: var(--accent); }
+
+  /* Table */
+  .table-wrap {
+    overflow-x: auto;
+    margin: 20px 0 28px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  thead th {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--heading);
+    background: var(--card);
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 2px solid var(--border);
+  }
+  tbody td {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(240, 136, 62, 0.04); }
+  td code {
+    font-size: 12.5px;
+    white-space: nowrap;
+  }
+
+  /* Examples section */
+  .examples-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+    margin: 16px 0 28px;
+  }
+  .example-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+  }
+  .example-card .dir {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: var(--accent);
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+  .example-card .items {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .example-card .items span {
+    color: var(--accent2);
+  }
+
+  /* Actionable steps */
+  .steps-list {
+    counter-reset: step;
+    padding-left: 0;
+    list-style: none;
+  }
+  .steps-list li {
+    counter-increment: step;
+    position: relative;
+    padding-left: 42px;
+    margin-bottom: 16px;
+  }
+  .steps-list li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #000;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Quick revision box */
+  .revision-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin: 32px 0 0;
+  }
+  .revision-box h2 {
+    margin-top: 0;
+    border-bottom: none;
+    padding-bottom: 0;
+    font-size: 18px;
+  }
+  .revision-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 6px 24px;
+    margin-top: 16px;
+  }
+  .revision-item {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(48,54,61,0.5);
+    font-size: 14px;
+  }
+  .revision-item:last-child { border-bottom: none; }
+  .revision-item code {
+    min-width: 70px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .revision-item span {
+    color: var(--muted);
+  }
+
+  /* HR */
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 40px 0;
+  }
+
+  /* Toast notification */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 3000;
+    background: var(--accent2);
+    color: #000;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 12px 20px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: transform 0.35s ease, opacity 0.35s ease;
+    box-shadow: 0 8px 32px rgba(63,185,80,0.3);
+  }
+  .toast.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  /* PDF-specific overrides — applied only during generation */
+  .pdf-render .download-bar,
+  .pdf-render .progress-overlay,
+  .pdf-render .toast { display: none !important; }
+
+  .pdf-render .doc-header { border-bottom-color: #d0d0d0; }
+  .pdf-render .doc-header .label { color: #c05621; }
+  .pdf-render .doc-header h1 { color: #1a1a2e; }
+  .pdf-render .doc-header .subtitle { color: #666; }
+  .pdf-render h2 { color: #c05621; border-bottom-color: #ddd; }
+  .pdf-render h3 { color: #c05621; }
+  .pdf-render p, .pdf-render li { color: #2d2d44; }
+  .pdf-render strong { color: #1a1a2e; }
+  .pdf-render code { background: #f0f0f5; color: #166534; border-color: #ddd; }
+  .pdf-render ul li::before { background: #c05621; }
+  .pdf-render ul ul li::before { background: #bbb; }
+  .pdf-render .caution {
+    background: #fff7ed;
+    border-left-color: #c05621;
+    color: #555;
+  }
+  .pdf-render .caution strong { color: #c05621; }
+  .pdf-render .table-wrap { border-color: #ccc; }
+  .pdf-render thead th {
+    color: #c05621;
+    background: #f7f7fa;
+    border-bottom-color: #ccc;
+  }
+  .pdf-render tbody td { border-bottom-color: #e5e5e5; color: #2d2d44; }
+  .pdf-render tbody tr:hover { background: transparent; }
+  .pdf-render .example-card {
+    background: #f7f7fa;
+    border-color: #ddd;
+  }
+  .pdf-render .example-card .dir { color: #c05621; }
+  .pdf-render .example-card .items { color: #555; }
+  .pdf-render .example-card .items span { color: #166534; }
+  .pdf-render .steps-list li::before { background: #c05621; color: #fff; }
+  .pdf-render .revision-box {
+    background: #f7f7fa;
+    border-color: #ddd;
+  }
+  .pdf-render .revision-item { border-bottom-color: #e5e5e5; }
+  .pdf-render .revision-item span { color: #555; }
+  .pdf-render hr { border-top-color: #ddd; }
+
+  @media (max-width: 640px) {
+    #document { padding: 72px 16px 40px; }
+    .examples-grid { grid-template-columns: 1fr; }
+    .revision-grid { grid-template-columns: 1fr; }
+  }
+
+  @media print {
+    .download-bar, .progress-overlay, .toast { display: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Floating download bar -->
+<div class="download-bar">
+  <span><i class="fa-solid fa-file-pdf"></i></span>
+  <span>Ready to export</span>
+  <button class="btn-pdf" id="btnDownload" onclick="generatePDF()">
+    <i class="fa-solid fa-download"></i>
+    Download PDF
+  </button>
+</div>
+
+<!-- Progress overlay -->
+<div class="progress-overlay" id="progressOverlay">
+  <div class="spinner"></div>
+  <p>Generating PDF, please wait...</p>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <i class="fa-solid fa-circle-check"></i>
+  PDF downloaded successfully
+</div>
+
+<!-- Document content -->
+<div id="document">
+
+  <div class="doc-header">
+    <div class="label">Revision Notes</div>
+    <h1>Linux File System Hierarchy</h1>
+    <div class="subtitle">A structured guide to the FSH standard directories</div>
+  </div>
+
+  <h2>Introduction to Linux File System</h2>
+  <ul>
+    <li><strong>Central Concept</strong>: Everything in Linux starts from a single point: the <code>/</code> <strong>root directory</strong>.</li>
+    <li><strong>Unified File System</strong>: Unlike Windows (which uses separate drive letters for partitions), Linux has a single, unified file system hierarchy where all files and directories branch out from the root. External drives and partitions are mounted as subdirectories within this hierarchy.</li>
+    <li><strong>Organization</strong>: Top-level directories are grouped into categories for clarity, separating system components, user files, temporary data, and applications.</li>
+  </ul>
+
+  <h2>Key Directories Explained</h2>
+
+  <h3>1. <code>/</code> (Root Directory)</h3>
+  <ul>
+    <li><strong>Definition</strong>: The absolute top-level directory in the Linux file system. All other directories and files descend from it.</li>
+    <li><strong>Purpose</strong>: The starting point for the entire system's file structure.</li>
+    <li><strong>Distinction</strong>: Not to be confused with <code>/root</code>.</li>
+  </ul>
+
+  <h3>2. <code>/root</code></h3>
+  <ul>
+    <li><strong>Definition</strong>: The <strong>home directory for the root user</strong> (administrator).</li>
+    <li><strong>Purpose</strong>: Keeps the root user's personal files and configurations isolated and secure from regular user data.</li>
+    <li><strong>Location</strong>: It is a subdirectory of <code>/</code>, not <code>/home</code>.</li>
+  </ul>
+
+  <h3>3. <code>/bin</code> (Binaries)</h3>
+  <ul>
+    <li><strong>Definition</strong>: Contains <strong>essential command-line tools</strong> (binaries) required for the system to function, especially during boot or in recovery mode.</li>
+    <li><strong>Accessibility</strong>: Commands here are always available to all users.</li>
+    <li><strong>Criticality</strong>: Crucial for everyday use and troubleshooting.</li>
+  </ul>
+  <div class="caution"><strong>Caution:</strong> Modifying this directory can break core system functionality.</div>
+
+  <h3>4. <code>/sbin</code> (System Binaries)</h3>
+  <ul>
+    <li><strong>Definition</strong>: Holds <strong>specialized system utilities</strong> primarily used by the system administrator (root user).</li>
+    <li><strong>Privileges</strong>: Most commands require superuser privileges to run.</li>
+    <li><strong>Purpose</strong>: Critical for managing and maintaining the system.</li>
+  </ul>
+  <div class="caution"><strong>Caution:</strong> Do not modify without understanding the risks.</div>
+
+  <h3>5. <code>/lib</code> (Libraries)</h3>
+  <ul>
+    <li><strong>Definition</strong>: Stores <strong>shared libraries</strong> that support the commands found in <code>/bin</code> and <code>/sbin</code>. Also contains <strong>kernel modules</strong>.</li>
+    <li><strong>Function</strong>: Provides common functionality (e.g., file reading, I/O) to avoid duplicating code in individual commands.</li>
+    <li><strong>Variations</strong>: May include <code>/lib32</code> and <code>/lib64</code> for 32-bit and 64-bit libraries.</li>
+    <li><strong>Kernel Modules</strong>: Small pieces of code loaded into the Linux kernel on demand to extend its functionality.</li>
+  </ul>
+  <div class="caution"><strong>Caution:</strong> Tampering can prevent the system from booting or break basic commands.</div>
+
+  <h3>6. <code>/usr</code> (Unix System Resources)</h3>
+  <ul>
+    <li><strong>Definition</strong>: Contains most of the system's <strong>userspace applications</strong>, libraries, and documentation. Despite the name, it does not store personal user files.</li>
+    <li><strong>Structure</strong>: Mirrors several root-level directories (e.g., <code>/usr/bin</code>, <code>/usr/lib</code>, <code>/usr/sbin</code>) for non-essential software.</li>
+    <li><strong>Purpose</strong>: Keeps the system organized and bootable even if only the root partition is available.</li>
+    <li><strong>Management</strong>: Usually read-only and managed by the system.</li>
+  </ul>
+
+  <h3>7. <code>/boot</code></h3>
+  <ul>
+    <li><strong>Definition</strong>: Contains all the files required for the system to <strong>boot up</strong>.</li>
+    <li><strong>Key Contents</strong>:
+      <ul>
+        <li>Linux kernel</li>
+        <li>Initial RAM disk (<code>initrd</code> or <code>initramfs</code>)</li>
+        <li>GRUB bootloader files (<code>grub.cfg</code>)</li>
+      </ul>
+    </li>
+  </ul>
+  <div class="caution"><strong>Caution:</strong> Even small changes can render the system unbootable. Often placed on a separate partition.</div>
+
+  <h3>8. <code>/dev</code> (Devices)</h3>
+  <ul>
+    <li><strong>Definition</strong>: A <strong>virtual file system</strong> containing <strong>device files</strong> that act as interfaces to hardware. It does not hold regular files stored on disk.</li>
+    <li><strong>Concept</strong>: In Linux, everything is treated like a file, including hardware devices.</li>
+    <li><strong>Types</strong>:
+      <ul>
+        <li><strong>Block devices</strong>: Handle data in chunks (e.g., hard drives).</li>
+        <li><strong>Character devices</strong>: Handle data as a stream of characters (e.g., keyboards).</li>
+      </ul>
+    </li>
+    <li><strong>Dynamic Management</strong>: Linux adds or removes these files as hardware changes.</li>
+  </ul>
+  <div class="caution"><strong>Caution:</strong> Interacting with these files directly can affect hardware.</div>
+
+  <h3>9. <code>/etc</code> (Et Cetera / Editable Text Configuration)</h3>
+  <ul>
+    <li><strong>Definition</strong>: The central location for <strong>system-wide configuration files</strong>.</li>
+    <li><strong>Format</strong>: Most are plain text files, readable and editable by system administrators.</li>
+    <li><strong>Purpose</strong>: Defines how the system behaves, covering network settings, user accounts, startup scripts, and service configurations.</li>
+  </ul>
+  <div class="caution"><strong>Caution:</strong> Changes must be made carefully as they affect the entire system.</div>
+
+  <h3>10. <code>/home</code></h3>
+  <ul>
+    <li><strong>Definition</strong>: The <strong>personal space for regular users</strong>. Each user has their own subdirectory here.</li>
+    <li><strong>Purpose</strong>: Stores user documents, downloads, projects, and personal settings, keeping user data separate from system files.</li>
+    <li><strong>User Configuration</strong>: Contains user-specific configuration files, often hidden (starting with a dot, e.g., <code>.bashrc</code>).</li>
+    <li><strong>Permissions</strong>: Users typically don't have access to each other's home folders by default.</li>
+    <li><strong>Customization</strong>: Designed to be customized by users.</li>
+  </ul>
+
+  <h3>11. <code>/media</code></h3>
+  <ul>
+    <li><strong>Definition</strong>: Where modern Linux systems automatically <strong>mount removable media</strong>.</li>
+    <li><strong>Purpose</strong>: Provides user-friendly access to the contents of devices like USB drives, CDs, and DVDs.</li>
+    <li><strong>Automation</strong>: Often handled seamlessly by desktop environments.</li>
+    <li><strong>Distinction</strong>: Contrasts with <code>/dev</code> (raw device connection) and <code>/mnt</code> (manual mounts).</li>
+  </ul>
+
+  <h3>12. <code>/mnt</code> (Mount)</h3>
+  <ul>
+    <li><strong>Definition</strong>: Traditionally used for <strong>manually mounting external storage</strong>.</li>
+    <li><strong>Purpose</strong>: Reserved for temporary mounts by system administrators for tasks like accessing failing hard drives or network shares during troubleshooting.</li>
+    <li><strong>Contents</strong>: Empty by default, only contains content when something is actively mounted.</li>
+    <li><strong>Usage</strong>: Typically used by the root user or advanced scripts, not for automatic user access.</li>
+  </ul>
+
+  <h3>13. <code>/proc</code> (Processes)</h3>
+  <ul>
+    <li><strong>Definition</strong>: A <strong>virtual file system</strong> (like <code>/dev</code>) that provides a dynamic, in-memory view of the Linux kernel and running processes.</li>
+    <li><strong>Key Contents</strong>:
+      <ul>
+        <li>Folders named after <strong>Process IDs (PIDs)</strong> with details about each process.</li>
+        <li>System information files (e.g., <code>/proc/cpuinfo</code>, <code>/proc/meminfo</code>).</li>
+      </ul>
+    </li>
+    <li><strong>Purpose</strong>: Vital for monitoring, debugging, and interacting with the system's inner workings in real-time.</li>
+  </ul>
+
+  <h3>14. <code>/sys</code> (System)</h3>
+  <ul>
+    <li><strong>Definition</strong>: A <strong>virtual directory</strong> (SYSFS pseudo file system) that acts as a dynamic interface between the Linux kernel and hardware.</li>
+    <li><strong>Purpose</strong>: Exposes information about devices, drivers, and system buses. Allows advanced users or tools to tweak kernel settings on the fly.</li>
+    <li><strong>Structure</strong>: Hierarchical, representing each hardware component and subsystem.</li>
+    <li><strong>Backend</strong>: Key backend for system utilities like <code>udev</code> and power managers.</li>
+  </ul>
+
+  <h3>15. <code>/run</code></h3>
+  <ul>
+    <li><strong>Definition</strong>: An <strong>in-memory directory</strong> holding temporary runtime data used by the system and applications right after boot.</li>
+    <li><strong>Persistence</strong>: Created early in startup, everything inside disappears on reboot.</li>
+    <li><strong>Purpose</strong>: Used by running processes for communication, state tracking, and storing short-lived files (e.g., process IDs, sockets).</li>
+    <li><strong>Replacement</strong>: Replaced older directories like <code>/var/run</code> and <code>/var/lock</code>.</li>
+  </ul>
+
+  <h3>16. <code>/srv</code> (Service)</h3>
+  <ul>
+    <li><strong>Definition</strong>: Where <strong>data for services</strong> provided by the system is stored.</li>
+    <li><strong>Purpose</strong>: Holds the content served to users connecting to the machine remotely (e.g., web server files, FTP data).</li>
+    <li><strong>Usage</strong>: More important on multi-user or enterprise server setups. Not all Linux systems use it by default.</li>
+  </ul>
+
+  <h3>17. <code>/var</code> (Variable)</h3>
+  <ul>
+    <li><strong>Definition</strong>: Stores files that <strong>change frequently</strong> during system operation.</li>
+    <li><strong>Key Contents</strong>:
+      <ul>
+        <li>Logs (<code>/var/log</code>)</li>
+        <li>Caches</li>
+        <li>Spool files</li>
+        <li>Package manager metadata (e.g., <code>/var/lib</code> for Debian-based systems)</li>
+      </ul>
+    </li>
+    <li><strong>Security</strong>: Can contain sensitive information and should be properly protected.</li>
+    <li><strong>Management</strong>: Often placed on its own partition in server setups to prevent filling up the root file system.</li>
+  </ul>
+
+  <h3>18. <code>/tmp</code> (Temporary)</h3>
+  <ul>
+    <li><strong>Definition</strong>: Stores <strong>temporary files</strong> created by applications or users.</li>
+    <li><strong>Persistence</strong>: Files are typically deleted automatically on reboot or after a certain period.</li>
+    <li><strong>Permissions</strong>: Writable by all users, but the <strong>sticky bit</strong> ensures users can only delete files they own.</li>
+    <li><strong>Location</strong>: On some systems, it resides in memory (<code>tmpfs</code>), so writing large files can consume RAM.</li>
+  </ul>
+
+  <h3>19. <code>/opt</code> (Optional)</h3>
+  <ul>
+    <li><strong>Definition</strong>: Where <strong>optional or third-party software</strong> is installed.</li>
+    <li><strong>Organization</strong>: Each application usually has its own subdirectory (e.g., <code>/opt/google/chrome</code>).</li>
+    <li><strong>Purpose</strong>: Provides a safe space for software that doesn't follow standard Linux file structure rules, without interfering with core system files. Common in enterprise environments.</li>
+    <li><strong>Privileges</strong>: Modifying requires administrative privileges.</li>
+  </ul>
+
+  <h2>Comparison Table</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Directory</th>
+          <th>Purpose</th>
+          <th>Key Characteristics</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>/bin</code></td><td>Essential user command binaries</td><td>For all users, available during boot/recovery</td></tr>
+        <tr><td><code>/sbin</code></td><td>Essential system administration binaries</td><td>For root/admin, requires superuser privileges</td></tr>
+        <tr><td><code>/media</code></td><td>Automatic mount point for removable media</td><td>User-friendly, handled by desktop environments</td></tr>
+        <tr><td><code>/mnt</code></td><td>Manual, temporary mount point</td><td>For admin, troubleshooting, empty by default</td></tr>
+        <tr><td><code>/proc</code></td><td>Virtual filesystem: kernel &amp; processes info</td><td>Dynamic, in-memory, process-specific data</td></tr>
+        <tr><td><code>/sys</code></td><td>Virtual filesystem: kernel &amp; hardware info</td><td>Dynamic, in-memory, hardware/driver configuration</td></tr>
+        <tr><td><code>/tmp</code></td><td>Temporary files</td><td>Deleted on reboot, writable by all (sticky bit)</td></tr>
+        <tr><td><code>/var</code></td><td>Variable data (logs, caches, spool)</td><td>Files change frequently, can be sensitive, persistent</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Examples</h2>
+  <div class="examples-grid">
+    <div class="example-card">
+      <div class="dir"><code>/bin</code></div>
+      <div class="items"><span>ls</span> <span>cp</span> <span>mv</span> <span>cat</span></div>
+    </div>
+    <div class="example-card">
+      <div class="dir"><code>/sbin</code></div>
+      <div class="items"><span>fdisk</span> <span>mount</span> <span>shutdown</span></div>
+    </div>
+    <div class="example-card">
+      <div class="dir"><code>/lib</code></div>
+      <div class="items"><span>libc.so.6</span> <span>nvidia.ko</span></div>
+    </div>
+    <div class="example-card">
+      <div class="dir"><code>/dev</code></div>
+      <div class="items"><span>/dev/sda</span> <span>/dev/null</span></div>
+    </div>
+    <div class="example-card">
+      <div class="dir"><code>/etc</code></div>
+      <div class="items"><span>/etc/passwd</span> <span>/etc/fstab</span></div>
+    </div>
+    <div class="example-card">
+      <div class="dir"><code>/home</code></div>
+      <div class="items"><span>/home/alex</span> <span>/home/emma</span> <span>.bashrc</span></div>
+    </div>
+    <div class="example-card">
+      <div class="dir"><code>/media</code></div>
+      <div class="items"><span>/media/usb_drive</span> <span>/media/cdrom</span></div>
+    </div>
+    <div class="example-card">
+      <div class="dir"><code>/proc</code></div>
+      <div class="items"><span>/proc/cpuinfo</span> <span>/proc/meminfo</span> <span>/proc/1234</span></div>
+    </div>
+    <div class="example-card">
+      <div class="dir"><code>/srv</code></div>
+      <div class="items"><span>/srv/www</span></div>
+    </div>
+    <div class="example-card">
+      <div class="dir"><code>/var</code></div>
+      <div class="items"><span>/var/log/syslog</span> <span>/var/cache/apt</span></div>
+    </div>
+    <div class="example-card">
+      <div class="dir"><code>/opt</code></div>
+      <div class="items"><span>/opt/google/chrome</span> <span>/opt/spotify</span></div>
+    </div>
+  </div>
+
+  <h2>Actionable Steps</h2>
+  <ol class="steps-list">
+    <li><strong>Understand Before Modifying</strong>: Never modify core system directories like <code>/bin</code>, <code>/sbin</code>, <code>/lib</code>, <code>/boot</code>, <code>/dev</code> unless you know exactly what you're doing and are following specific instructions. Incorrect changes can render your system unbootable or unstable.</li>
+    <li><strong>Customize Safely</strong>: The <code>/home</code> directory is your personal space; feel free to customize and save files here.</li>
+    <li><strong>Troubleshooting</strong>: When troubleshooting, examine <code>/var/log</code> for system logs, <code>/etc</code> for configuration issues, and <code>/proc</code> or <code>/sys</code> for real-time system and hardware information.</li>
+    <li><strong>Disk Management</strong>: Be aware of <code>/var</code> and <code>/tmp</code> for disk space management, especially on servers. Consider placing <code>/var</code> on a separate partition to prevent the root file system from filling up.</li>
+    <li><strong>Access Control</strong>: Remember that commands in <code>/sbin</code> typically require <code>sudo</code> or root privileges.</li>
+  </ol>
+
+  <hr>
+
+  <div class="revision-box">
+    <h2>Quick Revision Box: Linux File System Essentials</h2>
+    <div class="revision-grid">
+      <div class="revision-item"><code>/</code> <span>The base of everything.</span></div>
+      <div class="revision-item"><code>/bin</code> <span>Essential commands for all users.</span></div>
+      <div class="revision-item"><code>/sbin</code> <span>Admin-only system commands.</span></div>
+      <div class="revision-item"><code>/lib</code> <span>Shared libraries &amp; kernel modules.</span></div>
+      <div class="revision-item"><code>/usr</code> <span>User-space apps, libraries, docs.</span></div>
+      <div class="revision-item"><code>/boot</code> <span>Files to start the system.</span></div>
+      <div class="revision-item"><code>/dev</code> <span>Hardware device interfaces (virtual).</span></div>
+      <div class="revision-item"><code>/etc</code> <span>System configuration files.</span></div>
+      <div class="revision-item"><code>/home</code> <span>Regular user personal data.</span></div>
+      <div class="revision-item"><code>/root</code> <span>Root user's home directory.</span></div>
+      <div class="revision-item"><code>/media</code> <span>Auto-mounted removable media.</span></div>
+      <div class="revision-item"><code>/mnt</code> <span>Manual, temporary mount points.</span></div>
+      <div class="revision-item"><code>/proc</code> <span>Running processes &amp; kernel info (virtual).</span></div>
+      <div class="revision-item"><code>/sys</code> <span>Hardware &amp; kernel settings (virtual).</span></div>
+      <div class="revision-item"><code>/run</code> <span>Runtime data (in-memory, disappears on reboot).</span></div>
+      <div class="revision-item"><code>/srv</code> <span>Service-specific data.</span></div>
+      <div class="revision-item"><code>/var</code> <span>Variable data (logs, caches, frequent changes).</span></div>
+      <div class="revision-item"><code>/tmp</code> <span>Temporary files (deleted on reboot, sticky bit).</span></div>
+      <div class="revision-item"><code>/opt</code> <span>Optional/third-party software installs.</span></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function generatePDF() {
+    const btn = document.getElementById('btnDownload');
+    const overlay = document.getElementById('progressOverlay');
+    const doc = document.getElementById('document');
+
+    // Show loading state
+    btn.classList.add('loading');
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+    overlay.classList.add('active');
+
+    // Temporarily apply PDF-friendly styles
+    doc.classList.add('pdf-render');
+
+    const options = {
+      margin:       [12, 14, 12, 14],
+      filename:     'Linux_File_System_Hierarchy_Notes.pdf',
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  {
+        scale: 2,
+        useCORS: true,
+        letterRendering: true,
+        logging: false
+      },
+      jsPDF: {
+        unit: 'mm',
+        format: 'a4',
+        orientation: 'portrait'
+      },
+      pagebreak: {
+        mode: ['avoid-all', 'css', 'legacy']
+      }
+    };
+
+    html2pdf().set(options).from(doc).save()
+      .then(() => {
+        // Restore original styles
+        doc.classList.remove('pdf-render');
+        overlay.classList.remove('active');
+        btn.classList.remove('loading');
+        btn.innerHTML = '<i class="fa-solid fa-download"></i> Download PDF';
+
+        // Show success toast
+        const toast = document.getElementById('toast');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3000);
+      })
+      .catch((err) => {
+        doc.classList.remove('pdf-render');
+        overlay.classList.remove('active');
+        btn.classList.remove('loading');
+        btn.innerHTML = '<i class="fa-solid fa-download"></i> Download PDF';
+        console.error('PDF generation failed:', err);
+      });
+  }
+</script>
+</body>
+</html>
