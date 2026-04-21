@@ -453,37 +453,33 @@
   }
 
 
-  /* Better page break handling */
-h2 {
-  break-before: auto;
-  break-after: avoid;
-}
+  /* Better page break handling applied explicitly with standard and older css rules */
+  h2, h3 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+  
+  p, li, ol, .caution {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  
+  table, .table-wrap {
+    page-break-inside: auto;
+    break-inside: auto;
+  }
+  
+  tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  
+  /* Avoid breaking cards awkwardly */
+  .example-card, .revision-item, .revision-box {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
 
-h3 {
-  break-after: avoid;
-}
-
-p, li, ol {
-  break-inside: avoid;
-}
-
-table {
-  break-inside: auto;
-}
-
-tr {
-  break-inside: avoid;
-}
-
-/* Avoid breaking cards awkwardly */
-.example-card {
-  break-inside: avoid;
-}
-
-/* Allow flow instead of forcing breaks */
-hr {
-  break-before: auto;
-}
 </style>
 </head>
 <body>
@@ -823,12 +819,12 @@ hr {
 
     /* Detect viewport width to pick responsive scale and margins */
     const vw = window.innerWidth;
-    let scale = 2;
-    let margin = [12, 8, 12, 8];
+    let scale = 2.5;
+    let margin = [12, 8, 12, 2];
 
     if (vw < 480) {
       /* Small phones — lower scale to avoid memory crashes */
-      scale = 1.2;
+      scale = 1.0;
       margin = [10, 6, 10, 6];
     } else if (vw < 768) {
       /* Tablets / large phones */
@@ -836,8 +832,8 @@ hr {
       margin = [10, 6, 10, 6];
     } else if (vw < 1200) {
       /* Small desktops / laptops */
-      scale = 2;
-      margin = [12, 8, 12, 8];
+      scale = 2.5;
+      margin = [12, 8, 12, 2];
     }
     /* Desktops keep scale = 2, margin = [12,8,12,8] */
 
@@ -860,8 +856,9 @@ hr {
         unit: 'mm',
         format: 'a4',
         orientation: 'portrait'
-      }
-      /* No pagebreak options — content flows naturally */
+      },
+      /* This is the key configuration to prevent bisecting elements */
+      pagebreak: { mode: ['css', 'legacy'] }
     };
 
     html2pdf().set(options).from(doc).save()
