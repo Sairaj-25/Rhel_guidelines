@@ -115,10 +115,27 @@
   .pdf-render {
     background: #ffffff !important;
     color: #1a1a2e !important;
-    padding: 0 !important;
+    padding: 40px 32px !important;
     max-width: 100% !important;
+    width: 900px !important;
     font-size: 11pt !important;
     line-height: 1.65 !important;
+  }
+
+  /* Force grids to single column in PDF for clean page breaks */
+  .pdf-render .examples-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+  .pdf-render .revision-grid {
+    grid-template-columns: 1fr !important;
+    gap: 4px !important;
+  }
+
+  /* Explicit page-break utility */
+  .pdf-page-break {
+    page-break-before: always;
+    break-before: page;
   }
 
   /* ---------- Document Typography ---------- */
@@ -453,29 +470,57 @@
   }
 
 
-  /* Better page break handling applied explicitly with standard and older css rules */
+  /* ── Page break handling for PDF generation ── */
+
+  /* Headings should never be orphaned at page bottom */
   h2, h3 {
     page-break-after: avoid;
     break-after: avoid;
   }
-  
+
+  /* Keep paragraphs, list items, and caution boxes together */
   p, li, ol, .caution {
     page-break-inside: avoid;
     break-inside: avoid;
   }
-  
+
+  /* Tables may span pages but individual rows should not split */
   table, .table-wrap {
     page-break-inside: auto;
     break-inside: auto;
   }
-  
   tr {
     page-break-inside: avoid;
     break-inside: avoid;
   }
-  
-  /* Avoid breaking cards awkwardly */
+  thead {
+    display: table-header-group;
+  }
+
+  /* Avoid breaking cards and revision items */
   .example-card, .revision-item, .revision-box {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Each major h2 section starts on a fresh page in PDF */
+  .pdf-render h2.pdf-page-break {
+    page-break-before: always !important;
+    break-before: page !important;
+    margin-top: 0 !important;
+    padding-top: 8px !important;
+  }
+
+  /* Keep h3 + its following content together */
+  .pdf-render h3 {
+    page-break-after: avoid;
+    break-after: avoid;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Keep each directory section (h3 + ul + caution) as a unit */
+  .pdf-render .dir-section {
     page-break-inside: avoid;
     break-inside: avoid;
   }
@@ -522,7 +567,7 @@
     <li><strong>Organization</strong>: Top-level directories are grouped into categories for clarity, separating system components, user files, temporary data, and applications.</li>
   </ul>
 
-  <h2>Key Directories Explained</h2>
+  <h2 class="pdf-page-break">Key Directories Explained</h2>
 
   <h3>1. <code>/</code> (Root Directory)</h3>
   <ul>
@@ -697,7 +742,7 @@
     <li><strong>Privileges</strong>: Modifying requires administrative privileges.</li>
   </ul>
 
-  <h2>Comparison Table</h2>
+  <h2 class="pdf-page-break">Comparison Table</h2>
   <div class="table-wrap">
     <table>
       <thead>
@@ -720,7 +765,7 @@
     </table>
   </div>
 
-  <h2>Examples</h2>
+  <h2 class="pdf-page-break">Examples</h2>
   <div class="examples-grid">
     <div class="example-card">
       <div class="dir"><code>/bin</code></div>
@@ -768,7 +813,7 @@
     </div>
   </div>
 
-  <h2>Actionable Steps</h2>
+  <h2 class="pdf-page-break">Actionable Steps</h2>
   <ol class="steps-list">
     <li><strong>Understand Before Modifying</strong>: Never modify core system directories like <code>/bin</code>, <code>/sbin</code>, <code>/lib</code>, <code>/boot</code>, <code>/dev</code> unless you know exactly what you're doing and are following specific instructions. Incorrect changes can render your system unbootable or unstable.</li>
     <li><strong>Customize Safely</strong>: The <code>/home</code> directory is your personal space; feel free to customize and save files here.</li>
@@ -817,68 +862,83 @@
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
     overlay.classList.add('active');
 
-    /* Detect viewport width to pick responsive scale and margins */
-    const vw = window.innerWidth;
-    let scale = 2.0;
-    let margin = [12, 8, 12, 2];
+    /*
+     * RESPONSIVE FIX: Instead of capturing the current viewport (which
+     * produces cramped PDFs on phones), we clone the document into a
+     * fixed-width off-screen container so the PDF always renders at
+     * desktop quality (900px) regardless of device.
+     */
+    const RENDER_WIDTH = 900; // px — matches #document max-width
 
-    if (vw < 480) {
-      /* Small phones — lower scale to avoid memory crashes */
-      scale = 0.75;
-      margin = [10, 6, 10, 6];
-    } else if (vw < 768) {
-      /* Tablets / large phones */
-      scale = 1.5;
-      margin = [10, 6, 10, 6];
-    } else if (vw < 1200) {
-      /* Small desktops / laptops */
-      scale = 2.0;
-      margin = [12, 8, 12, 2];
-    }
-    /* Desktops keep scale = 2, margin = [12,8,12,8] */
+    /* Create off-screen clone container */
+    const offscreen = document.createElement('div');
+    offscreen.style.cssText = `
+      position: fixed;
+      left: -9999px;
+      top: 0;
+      width: ${RENDER_WIDTH}px;
+      background: #ffffff;
+      z-index: -1;
+      overflow: visible;
+    `;
+    document.body.appendChild(offscreen);
 
-    /* Temporarily apply PDF-friendly styles */
-    doc.classList.add('pdf-render');
+    /* Deep-clone and apply PDF styles */
+    const clone = doc.cloneNode(true);
+    clone.removeAttribute('id');
+    clone.classList.add('pdf-render');
+    clone.style.width = RENDER_WIDTH + 'px';
+    clone.style.maxWidth = RENDER_WIDTH + 'px';
+    offscreen.appendChild(clone);
 
-    const options = {
-      margin: margin,
-      filename: 'Linux_File_System_Hierarchy_Notes.pdf',
-      image: { type: 'jpeg', quality: 0.95 },
-      html2canvas: {
-        scale: scale,
-        useCORS: true,
-        letterRendering: true,
-        logging: false,
-        width: doc.scrollWidth,
-        windowWidth: doc.scrollWidth
-      },
-      jsPDF: {
-        unit: 'mm',
-        format: 'a4',
-        orientation: 'portrait'
-      },
-      /* This is the key configuration to prevent bisecting elements */
-      pagebreak: { mode: ['css', 'legacy'] }
-    };
+    /* Let the browser lay out the clone before capturing */
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
 
-    html2pdf().set(options).from(doc).save()
-      .then(() => {
-        doc.classList.remove('pdf-render');
-        overlay.classList.remove('active');
-        btn.classList.remove('loading');
-        btn.innerHTML = '<i class="fa-solid fa-download"></i> Download PDF';
+        const options = {
+          margin: [12, 8, 12, 8],
+          filename: 'Linux_File_System_Hierarchy_Notes.pdf',
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            letterRendering: true,
+            logging: false,
+            width: RENDER_WIDTH,
+            windowWidth: RENDER_WIDTH
+          },
+          jsPDF: {
+            unit: 'mm',
+            format: 'a4',
+            orientation: 'portrait'
+          },
+          pagebreak: {
+            mode: ['css', 'legacy'],
+            before: '.pdf-page-break',
+            avoid: ['h3', '.caution', '.example-card', '.revision-item', '.revision-box', 'tr']
+          }
+        };
 
-        const toast = document.getElementById('toast');
-        toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 3000);
-      })
-      .catch((err) => {
-        doc.classList.remove('pdf-render');
-        overlay.classList.remove('active');
-        btn.classList.remove('loading');
-        btn.innerHTML = '<i class="fa-solid fa-download"></i> Download PDF';
-        console.error('PDF generation failed:', err);
+        html2pdf().set(options).from(clone).save()
+          .then(() => {
+            offscreen.remove();
+            overlay.classList.remove('active');
+            btn.classList.remove('loading');
+            btn.innerHTML = '<i class="fa-solid fa-download"></i> Download PDF';
+
+            const toast = document.getElementById('toast');
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+          })
+          .catch((err) => {
+            offscreen.remove();
+            overlay.classList.remove('active');
+            btn.classList.remove('loading');
+            btn.innerHTML = '<i class="fa-solid fa-download"></i> Download PDF';
+            console.error('PDF generation failed:', err);
+          });
       });
+    });
   }
 </script>
 </body>
