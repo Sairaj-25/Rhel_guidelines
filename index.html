@@ -111,11 +111,11 @@
     padding: 80px 32px 60px;
   }
 
-  /* PDF-friendly print styles injected via class */
+  /* PDF-friendly render class — applied only during generation */
   .pdf-render {
     background: #ffffff !important;
     color: #1a1a2e !important;
-    padding: 40px 48px !important;
+    padding: 0 !important;
     max-width: 100% !important;
     font-size: 11pt !important;
     line-height: 1.65 !important;
@@ -160,23 +160,6 @@
     border-bottom: 1px solid var(--border);
     letter-spacing: -0.5px;
   }
-
-/* Page break for pdf  */
-h2, h3 {
-  page-break-after: avoid;
-}
-
-li {
-  page-break-inside: avoid;
-}
-
-.example-card, .table-wrap, .revision-box {
-  page-break-inside: avoid;
-}
-
-hr {
-  page-break-before: always;
-}
 
   h3 {
     font-family: 'JetBrains Mono', monospace;
@@ -414,10 +397,6 @@ hr {
   }
 
   /* PDF-specific overrides — applied only during generation */
-  .pdf-render .download-bar,
-  .pdf-render .progress-overlay,
-  .pdf-render .toast { display: none !important; }
-
   .pdf-render .doc-header { border-bottom-color: #d0d0d0; }
   .pdf-render .doc-header .label { color: #c05621; }
   .pdf-render .doc-header h1 { color: #1a1a2e; }
@@ -463,11 +442,48 @@ hr {
     #document { padding: 72px 16px 40px; }
     .examples-grid { grid-template-columns: 1fr; }
     .revision-grid { grid-template-columns: 1fr; }
+    .download-bar { gap: 10px; padding: 12px 16px; }
+    .download-bar span.hide-mobile { display: none; }
+    .btn-pdf { padding: 9px 16px; font-size: 13px; }
+    .toast { bottom: 16px; right: 16px; left: 16px; justify-content: center; }
   }
 
   @media print {
     .download-bar, .progress-overlay, .toast { display: none !important; }
   }
+
+
+  /* Better page break handling */
+h2 {
+  break-before: auto;
+  break-after: avoid;
+}
+
+h3 {
+  break-after: avoid;
+}
+
+p, li, ol {
+  break-inside: avoid;
+}
+
+table {
+  break-inside: auto;
+}
+
+tr {
+  break-inside: avoid;
+}
+
+/* Avoid breaking cards awkwardly */
+.example-card {
+  break-inside: avoid;
+}
+
+/* Allow flow instead of forcing breaks */
+hr {
+  break-before: auto;
+}
 </style>
 </head>
 <body>
@@ -475,7 +491,7 @@ hr {
 <!-- Floating download bar -->
 <div class="download-bar">
   <span><i class="fa-solid fa-file-pdf"></i></span>
-  <span>Ready to export</span>
+  <span class="hide-mobile">Ready to export</span>
   <button class="btn-pdf" id="btnDownload" onclick="generatePDF()">
     <i class="fa-solid fa-download"></i>
     Download PDF
@@ -800,43 +816,61 @@ hr {
     const overlay = document.getElementById('progressOverlay');
     const doc = document.getElementById('document');
 
-    // Show loading state
+    /* Show loading state */
     btn.classList.add('loading');
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
     overlay.classList.add('active');
 
-    // Temporarily apply PDF-friendly styles
+    /* Detect viewport width to pick responsive scale and margins */
+    const vw = window.innerWidth;
+    let scale = 2;
+    let margin = [12, 8, 12, 8];
+
+    if (vw < 480) {
+      /* Small phones — lower scale to avoid memory crashes */
+      scale = 1.2;
+      margin = [10, 6, 10, 6];
+    } else if (vw < 768) {
+      /* Tablets / large phones */
+      scale = 1.5;
+      margin = [10, 6, 10, 6];
+    } else if (vw < 1200) {
+      /* Small desktops / laptops */
+      scale = 2;
+      margin = [12, 8, 12, 8];
+    }
+    /* Desktops keep scale = 2, margin = [12,8,12,8] */
+
+    /* Temporarily apply PDF-friendly styles */
     doc.classList.add('pdf-render');
 
     const options = {
-      margin:       [14, 10, 14, 10],
-      filename:     'Linux_File_System_Hierarchy_Notes.pdf',
-      image:        { type: 'jpeg', quality: 0.92 },
-      html2canvas:  {
-        scale: 1.5,
+      margin: margin,
+      filename: 'Linux_File_System_Hierarchy_Notes.pdf',
+      image: { type: 'jpeg', quality: 0.95 },
+      html2canvas: {
+        scale: scale,
         useCORS: true,
         letterRendering: true,
-        logging: false
+        logging: false,
+        width: doc.scrollWidth,
+        windowWidth: doc.scrollWidth
       },
       jsPDF: {
         unit: 'mm',
         format: 'a4',
         orientation: 'portrait'
-      },
-      pagebreak: {
-        mode: ['css', 'legacy']
       }
+      /* No pagebreak options — content flows naturally */
     };
 
     html2pdf().set(options).from(doc).save()
       .then(() => {
-        // Restore original styles
         doc.classList.remove('pdf-render');
         overlay.classList.remove('active');
         btn.classList.remove('loading');
         btn.innerHTML = '<i class="fa-solid fa-download"></i> Download PDF';
 
-        // Show success toast
         const toast = document.getElementById('toast');
         toast.classList.add('show');
         setTimeout(() => toast.classList.remove('show'), 3000);
