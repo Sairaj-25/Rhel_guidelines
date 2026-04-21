@@ -161,6 +161,23 @@
     letter-spacing: -0.5px;
   }
 
+/* Page break for pdf  */
+h2, h3 {
+  page-break-after: avoid;
+}
+
+li {
+  page-break-inside: avoid;
+}
+
+.example-card, .table-wrap, .revision-box {
+  page-break-inside: avoid;
+}
+
+hr {
+  page-break-before: always;
+}
+
   h3 {
     font-family: 'JetBrains Mono', monospace;
     font-size: 16px;
@@ -794,9 +811,9 @@
     const options = {
       margin:       [14, 10, 14, 10],
       filename:     'Linux_File_System_Hierarchy_Notes.pdf',
-      image:        { type: 'jpeg', quality: 0.98 },
+      image:        { type: 'jpeg', quality: 0.92 },
       html2canvas:  {
-        scale: 2,
+        scale: 1.5,
         useCORS: true,
         letterRendering: true,
         logging: false
@@ -807,7 +824,7 @@
         orientation: 'portrait'
       },
       pagebreak: {
-        mode: ['avoid-all', 'css', 'legacy']
+        mode: ['css', 'legacy']
       }
     };
 
