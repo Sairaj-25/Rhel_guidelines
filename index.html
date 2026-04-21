@@ -819,12 +819,12 @@
 
     /* Detect viewport width to pick responsive scale and margins */
     const vw = window.innerWidth;
-    let scale = 2.5;
+    let scale = 2.0;
     let margin = [12, 8, 12, 2];
 
     if (vw < 480) {
       /* Small phones — lower scale to avoid memory crashes */
-      scale = 1.0;
+      scale = 0.75;
       margin = [10, 6, 10, 6];
     } else if (vw < 768) {
       /* Tablets / large phones */
@@ -832,7 +832,7 @@
       margin = [10, 6, 10, 6];
     } else if (vw < 1200) {
       /* Small desktops / laptops */
-      scale = 2.5;
+      scale = 2.0;
       margin = [12, 8, 12, 2];
     }
     /* Desktops keep scale = 2, margin = [12,8,12,8] */
