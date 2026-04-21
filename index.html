@@ -6,7 +6,7 @@
 <title>Linux File System Hierarchy — Revision Notes</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;0,900;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
 <style>
   :root {
     --bg: #0e1117;
@@ -30,113 +30,16 @@
     min-height: 100vh;
   }
 
-  /* Floating download bar */
-  .download-bar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    padding: 14px 24px;
-    background: rgba(14, 17, 23, 0.85);
-    backdrop-filter: blur(16px);
-    border-bottom: 1px solid var(--border);
-  }
 
-  .download-bar span {
-    color: var(--muted);
-    font-size: 14px;
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  .btn-pdf {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 24px;
-    background: var(--accent);
-    color: #000;
-    border: none;
-    border-radius: 8px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
-  }
-  .btn-pdf:hover {
-    background: var(--heading);
-    transform: translateY(-1px);
-    box-shadow: 0 6px 24px rgba(240,136,62,0.35);
-  }
-  .btn-pdf:active { transform: scale(0.97); }
-  .btn-pdf.loading { pointer-events: none; opacity: 0.7; }
-
-  /* Progress overlay */
-  .progress-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 2000;
-    background: rgba(0,0,0,0.7);
-    backdrop-filter: blur(6px);
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 20px;
-  }
-  .progress-overlay.active { display: flex; }
-  .spinner {
-    width: 48px; height: 48px;
-    border: 4px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .progress-overlay p {
-    font-family: 'JetBrains Mono', monospace;
-    color: var(--fg);
-    font-size: 14px;
-  }
 
   /* Main document container */
   #document {
     max-width: 900px;
     margin: 0 auto;
-    padding: 80px 32px 60px;
+    padding: 40px 32px 60px;
   }
 
-  /* PDF-friendly render class — applied only during generation */
-  .pdf-render {
-    background: #ffffff !important;
-    color: #1a1a2e !important;
-    padding: 40px 32px !important;
-    max-width: 100% !important;
-    width: 900px !important;
-    font-size: 11pt !important;
-    line-height: 1.65 !important;
-  }
 
-  /* Force grids to single column in PDF for clean page breaks */
-  .pdf-render .examples-grid {
-    grid-template-columns: 1fr 1fr !important;
-    gap: 10px !important;
-  }
-  .pdf-render .revision-grid {
-    grid-template-columns: 1fr !important;
-    gap: 4px !important;
-  }
-
-  /* Explicit page-break utility */
-  .pdf-page-break {
-    page-break-before: always;
-    break-before: page;
-  }
 
   /* ---------- Document Typography ---------- */
   .doc-header {
@@ -387,169 +290,23 @@
     margin: 40px 0;
   }
 
-  /* Toast notification */
-  .toast {
-    position: fixed;
-    bottom: 30px;
-    right: 30px;
-    z-index: 3000;
-    background: var(--accent2);
-    color: #000;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 12px 20px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transform: translateY(100px);
-    opacity: 0;
-    transition: transform 0.35s ease, opacity 0.35s ease;
-    box-shadow: 0 8px 32px rgba(63,185,80,0.3);
-  }
-  .toast.show {
-    transform: translateY(0);
-    opacity: 1;
-  }
 
-  /* PDF-specific overrides — applied only during generation */
-  .pdf-render .doc-header { border-bottom-color: #d0d0d0; }
-  .pdf-render .doc-header .label { color: #c05621; }
-  .pdf-render .doc-header h1 { color: #1a1a2e; }
-  .pdf-render .doc-header .subtitle { color: #666; }
-  .pdf-render h2 { color: #c05621; border-bottom-color: #ddd; }
-  .pdf-render h3 { color: #c05621; }
-  .pdf-render p, .pdf-render li { color: #2d2d44; }
-  .pdf-render strong { color: #1a1a2e; }
-  .pdf-render code { background: #f0f0f5; color: #166534; border-color: #ddd; }
-  .pdf-render ul li::before { background: #c05621; }
-  .pdf-render ul ul li::before { background: #bbb; }
-  .pdf-render .caution {
-    background: #fff7ed;
-    border-left-color: #c05621;
-    color: #555;
-  }
-  .pdf-render .caution strong { color: #c05621; }
-  .pdf-render .table-wrap { border-color: #ccc; }
-  .pdf-render thead th {
-    color: #c05621;
-    background: #f7f7fa;
-    border-bottom-color: #ccc;
-  }
-  .pdf-render tbody td { border-bottom-color: #e5e5e5; color: #2d2d44; }
-  .pdf-render tbody tr:hover { background: transparent; }
-  .pdf-render .example-card {
-    background: #f7f7fa;
-    border-color: #ddd;
-  }
-  .pdf-render .example-card .dir { color: #c05621; }
-  .pdf-render .example-card .items { color: #555; }
-  .pdf-render .example-card .items span { color: #166534; }
-  .pdf-render .steps-list li::before { background: #c05621; color: #fff; }
-  .pdf-render .revision-box {
-    background: #f7f7fa;
-    border-color: #ddd;
-  }
-  .pdf-render .revision-item { border-bottom-color: #e5e5e5; }
-  .pdf-render .revision-item span { color: #555; }
-  .pdf-render hr { border-top-color: #ddd; }
+
+
 
   @media (max-width: 640px) {
-    #document { padding: 72px 16px 40px; }
+    #document { padding: 32px 16px 40px; }
     .examples-grid { grid-template-columns: 1fr; }
     .revision-grid { grid-template-columns: 1fr; }
-    .download-bar { gap: 10px; padding: 12px 16px; }
-    .download-bar span.hide-mobile { display: none; }
-    .btn-pdf { padding: 9px 16px; font-size: 13px; }
-    .toast { bottom: 16px; right: 16px; left: 16px; justify-content: center; }
-  }
-
-  @media print {
-    .download-bar, .progress-overlay, .toast { display: none !important; }
   }
 
 
-  /* ── Page break handling for PDF generation ── */
 
-  /* Headings should never be orphaned at page bottom */
-  h2, h3 {
-    page-break-after: avoid;
-    break-after: avoid;
-  }
-
-  /* Keep paragraphs, list items, and caution boxes together */
-  p, li, ol, .caution {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-
-  /* Tables may span pages but individual rows should not split */
-  table, .table-wrap {
-    page-break-inside: auto;
-    break-inside: auto;
-  }
-  tr {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-  thead {
-    display: table-header-group;
-  }
-
-  /* Avoid breaking cards and revision items */
-  .example-card, .revision-item, .revision-box {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-
-  /* Each major h2 section starts on a fresh page in PDF */
-  .pdf-render h2.pdf-page-break {
-    page-break-before: always !important;
-    break-before: page !important;
-    margin-top: 0 !important;
-    padding-top: 8px !important;
-  }
-
-  /* Keep h3 + its following content together */
-  .pdf-render h3 {
-    page-break-after: avoid;
-    break-after: avoid;
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-
-  /* Keep each directory section (h3 + ul + caution) as a unit */
-  .pdf-render .dir-section {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
 
 </style>
 </head>
 <body>
 
-<!-- Floating download bar -->
-<div class="download-bar">
-  <span><i class="fa-solid fa-file-pdf"></i></span>
-  <span class="hide-mobile">Ready to export</span>
-  <button class="btn-pdf" id="btnDownload" onclick="generatePDF()">
-    <i class="fa-solid fa-download"></i>
-    Download PDF
-  </button>
-</div>
-
-<!-- Progress overlay -->
-<div class="progress-overlay" id="progressOverlay">
-  <div class="spinner"></div>
-  <p>Generating PDF, please wait...</p>
-</div>
-
-<!-- Toast -->
-<div class="toast" id="toast">
-  <i class="fa-solid fa-circle-check"></i>
-  PDF downloaded successfully
-</div>
 
 <!-- Document content -->
 <div id="document">
@@ -567,7 +324,7 @@
     <li><strong>Organization</strong>: Top-level directories are grouped into categories for clarity, separating system components, user files, temporary data, and applications.</li>
   </ul>
 
-  <h2 class="pdf-page-break">Key Directories Explained</h2>
+  <h2>Key Directories Explained</h2>
 
   <h3>1. <code>/</code> (Root Directory)</h3>
   <ul>
@@ -742,7 +499,7 @@
     <li><strong>Privileges</strong>: Modifying requires administrative privileges.</li>
   </ul>
 
-  <h2 class="pdf-page-break">Comparison Table</h2>
+  <h2>Comparison Table</h2>
   <div class="table-wrap">
     <table>
       <thead>
@@ -765,7 +522,7 @@
     </table>
   </div>
 
-  <h2 class="pdf-page-break">Examples</h2>
+  <h2>Examples</h2>
   <div class="examples-grid">
     <div class="example-card">
       <div class="dir"><code>/bin</code></div>
@@ -813,7 +570,7 @@
     </div>
   </div>
 
-  <h2 class="pdf-page-break">Actionable Steps</h2>
+  <h2>Actionable Steps</h2>
   <ol class="steps-list">
     <li><strong>Understand Before Modifying</strong>: Never modify core system directories like <code>/bin</code>, <code>/sbin</code>, <code>/lib</code>, <code>/boot</code>, <code>/dev</code> unless you know exactly what you're doing and are following specific instructions. Incorrect changes can render your system unbootable or unstable.</li>
     <li><strong>Customize Safely</strong>: The <code>/home</code> directory is your personal space; feel free to customize and save files here.</li>
@@ -851,95 +608,6 @@
 
 </div>
 
-<script>
-  function generatePDF() {
-    const btn = document.getElementById('btnDownload');
-    const overlay = document.getElementById('progressOverlay');
-    const doc = document.getElementById('document');
 
-    /* Show loading state */
-    btn.classList.add('loading');
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
-    overlay.classList.add('active');
-
-    /*
-     * RESPONSIVE FIX: Instead of capturing the current viewport (which
-     * produces cramped PDFs on phones), we clone the document into a
-     * fixed-width off-screen container so the PDF always renders at
-     * desktop quality (900px) regardless of device.
-     */
-    const RENDER_WIDTH = 900; // px — matches #document max-width
-
-    /* Create off-screen clone container */
-    const offscreen = document.createElement('div');
-    offscreen.style.cssText = `
-      position: fixed;
-      left: -9999px;
-      top: 0;
-      width: ${RENDER_WIDTH}px;
-      background: #ffffff;
-      z-index: -1;
-      overflow: visible;
-    `;
-    document.body.appendChild(offscreen);
-
-    /* Deep-clone and apply PDF styles */
-    const clone = doc.cloneNode(true);
-    clone.removeAttribute('id');
-    clone.classList.add('pdf-render');
-    clone.style.width = RENDER_WIDTH + 'px';
-    clone.style.maxWidth = RENDER_WIDTH + 'px';
-    offscreen.appendChild(clone);
-
-    /* Let the browser lay out the clone before capturing */
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-
-        const options = {
-          margin: [12, 8, 12, 8],
-          filename: 'Linux_File_System_Hierarchy_Notes.pdf',
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: {
-            scale: 2,
-            useCORS: true,
-            letterRendering: true,
-            logging: false,
-            width: RENDER_WIDTH,
-            windowWidth: RENDER_WIDTH
-          },
-          jsPDF: {
-            unit: 'mm',
-            format: 'a4',
-            orientation: 'portrait'
-          },
-          pagebreak: {
-            mode: ['css', 'legacy'],
-            before: '.pdf-page-break',
-            avoid: ['h3', '.caution', '.example-card', '.revision-item', '.revision-box', 'tr']
-          }
-        };
-
-        html2pdf().set(options).from(clone).save()
-          .then(() => {
-            offscreen.remove();
-            overlay.classList.remove('active');
-            btn.classList.remove('loading');
-            btn.innerHTML = '<i class="fa-solid fa-download"></i> Download PDF';
-
-            const toast = document.getElementById('toast');
-            toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 3000);
-          })
-          .catch((err) => {
-            offscreen.remove();
-            overlay.classList.remove('active');
-            btn.classList.remove('loading');
-            btn.innerHTML = '<i class="fa-solid fa-download"></i> Download PDF';
-            console.error('PDF generation failed:', err);
-          });
-      });
-    });
-  }
-</script>
 </body>
 </html>
